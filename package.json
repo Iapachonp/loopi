@@ -1,0 +1,16 @@
+{
+  "name": "@ivan/loopi",
+  "version": "0.1.0",
+  "description": "Pi extension for safe multi-agent coder/reviewer loops",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"],
+    "agents": ["./agents"]
+  }
+}
