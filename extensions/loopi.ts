@@ -55,6 +55,7 @@ import * as path from "node:path";
 // assistant messages produced by the child `pi` processes to extract the final
 // text output of each agent.
 import type { Message } from "@earendil-works/pi-ai";
+import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 
 // `StringEnum` is a helper from pi-ai that builds a JSON schema string enum in
 // a way that works across all providers (Google's API in particular does not
@@ -160,6 +161,14 @@ interface RoundResult {
   reviewerResults: AgentResult[];
   verdict: "APPROVED" | "CHANGES_REQUESTED" | "UNKNOWN";
   feedback: string;
+}
+
+/**
+ * Structured details carried on every loopi tool result and progress update.
+ * The history is also exposed to callers so they can inspect every round.
+ */
+interface LoopiDetails {
+  history: RoundResult[];
 }
 
 // ---------------------------------------------------------------------------
@@ -658,7 +667,13 @@ export default function (pi: ExtensionAPI) {
      *   onUpdate   - callback to stream progress back to the Pi TUI/RPC.
      *   ctx        - ExtensionContext with cwd, ui, sessionManager, etc.
      */
-    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+    async execute(
+      _toolCallId,
+      params,
+      signal,
+      onUpdate,
+      ctx,
+    ): Promise<AgentToolResult<LoopiDetails>> {
       // Current working directory of the main Pi session. All child agents run
       // in the same cwd so they operate on the same files.
       const cwd = ctx.cwd;
@@ -680,7 +695,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: `Coder agent "${coderName}" not found. Available agents: ${agents.map((a) => a.name).join(", ") || "none"}`,
           }],
-          isError: true,
+          details: { history: [] },
         };
       }
       if (!reviewer) {
@@ -689,7 +704,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: `Reviewer agent "${reviewerName}" not found. Available agents: ${agents.map((a) => a.name).join(", ") || "none"}`,
           }],
-          isError: true,
+          details: { history: [] },
         };
       }
 
@@ -705,6 +720,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: `Round ${round}/${maxRounds}: running coder...`,
           }],
+          details: { history },
         });
 
         // 1. Coder round.
@@ -718,7 +734,6 @@ export default function (pi: ExtensionAPI) {
               text: `Coder failed in round ${round}:\n${coderResult.error || coderResult.output}`,
             }],
             details: { history },
-            isError: true,
           };
         }
 
@@ -727,6 +742,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: `Round ${round}/${maxRounds}: coder done, running reviewer...`,
           }],
+          details: { history },
         });
 
         // 2. Reviewer round.
@@ -748,7 +764,6 @@ export default function (pi: ExtensionAPI) {
               text: `Reviewer failed in round ${round}:\n${reviewerResult.error || reviewerResult.output}`,
             }],
             details: { history },
-            isError: true,
           };
         }
 
@@ -790,6 +805,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: `Round ${round}/${maxRounds}: reviewer requested changes. ${round < maxRounds ? "Looping..." : "Max rounds reached."}`,
           }],
+          details: { history },
         });
       }
 
@@ -811,4 +827,4 @@ export default function (pi: ExtensionAPI) {
       };
     },
   });
-}
+};
