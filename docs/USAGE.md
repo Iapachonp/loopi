@@ -1,4 +1,4 @@
-: "loopi"
+# loopi Usage
 
 This guide shows how to install loopi and use it day-to-day.
 
@@ -6,10 +6,12 @@ This guide shows how to install loopi and use it day-to-day.
 
 ## Install loopi
 
+> Throughout these examples, replace `~/loopi` with the directory where you cloned this repository (`$HOME/loopi`, `~/Code/loopi`, `~/projects/loopi`, etc.).
+
 ### Option A: install as a local Pi package (recommended for first use)
 
 ```bash
-cd /home/ivan/Code/loopi
+cd ~/loopi
 pi install ./
 ```
 
@@ -21,9 +23,9 @@ If you are changing loopi code frequently, symlink the files so `/reload` picks 
 
 ```bash
 mkdir -p ~/.pi/agent/extensions ~/.pi/agent/agents
-ln -sf /home/ivan/Code/loopi/extensions/loopi.ts ~/.pi/agent/extensions/loopi.ts
-ln -sf /home/ivan/Code/loopi/agents/coder.md ~/.pi/agent/agents/loopi-coder.md
-ln -sf /home/ivan/Code/loopi/agents/reviewer.md ~/.pi/agent/agents/loopi-reviewer.md
+ln -sf ~/loopi/extensions/loopi.ts ~/.pi/agent/extensions/loopi.ts
+ln -sf ~/loopi/agents/coder.md ~/.pi/agent/agents/loopi-coder.md
+ln -sf ~/loopi/agents/reviewer.md ~/.pi/agent/agents/loopi-reviewer.md
 ```
 
 After editing, run `/reload` in Pi.
@@ -31,7 +33,7 @@ After editing, run `/reload` in Pi.
 ### Option C: install from git (once published)
 
 ```bash
-pi install git:github.com/ivan/loopi@v0.1.0
+pi install git:github.com/<your-github-username>/loopi@v0.1.0
 ```
 
 ---
@@ -104,7 +106,7 @@ You are an extremely strict reviewer...
 2. If using symlinks, link it:
 
 ```bash
-ln -sf /home/ivan/Code/loopi/agents/strict-reviewer.md ~/.pi/agent/agents/strict-reviewer.md
+ln -sf ~/loopi/agents/strict-reviewer.md ~/.pi/agent/agents/strict-reviewer.md
 ```
 
 3. Use it:
@@ -157,13 +159,13 @@ Open the tool result details (Ctrl+O in TUI) to see the stderr. Common causes:
 
 ## Development workflow
 
-1. Make changes in `/home/ivan/Code/loopi`.
+1. Make changes in `~/loopi`.
 2. Run `/reload` in Pi if using symlinks, or `pi install ./` again if using the package path.
 3. Test with a small, safe task in a git-tracked project so you can inspect diffs.
 4. Commit and push:
 
 ```bash
-cd /home/ivan/Code/loopi
+cd ~/loopi
 git add .
 git commit -m "describe change"
 git push origin feat/initial-extension
