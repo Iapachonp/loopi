@@ -793,8 +793,10 @@ session.dispose();
 
 ## 13. Further reading
 
-- Pi docs: `/home/ivan/.nvm/versions/node/v24.11.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/extensions.md`
-- Pi docs: `/home/ivan/.nvm/versions/node/v24.11.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/sdk.md`
-- Pi docs: `/home/ivan/.nvm/versions/node/v24.11.1/lib/node_modules/@earendil-works/pi-coding-agent/docs/packages.md`
-- Example extensions: `/home/ivan/.nvm/versions/node/v24.11.1/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/`
-- SDK examples: `/home/ivan/.nvm/versions/node/v24.11.1/lib/node_modules/@earendil-works/pi-coding-agent/examples/sdk/`
+- Pi docs: `~/.nvm/versions/node/<your-node-version>/lib/node_modules/@earendil-works/pi-coding-agent/docs/extensions.md`
+- Pi docs: `~/.nvm/versions/node/<your-node-version>/lib/node_modules/@earendil-works/pi-coding-agent/docs/sdk.md`
+- Pi docs: `~/.nvm/versions/node/<your-node-version>/lib/node_modules/@earendil-works/pi-coding-agent/docs/packages.md`
+- Example extensions: `~/.nvm/versions/node/<your-node-version>/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/`
+- SDK examples: `~/.nvm/versions/node/<your-node-version>/lib/node_modules/@earendil-works/pi-coding-agent/examples/sdk/`
+
+> The exact path depends on your Node version and install method (`~/.nvm/versions/node/...` for nvm, `~/.local/lib/node_modules/...` for some system installs, etc.). Adjust `<your-node-version>` accordingly.

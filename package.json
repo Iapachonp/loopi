@@ -1,5 +1,5 @@
 {
-  "name": "@ivan/loopi",
+  "name": "loopi",
   "version": "0.1.0",
   "description": "Pi extension for safe multi-agent coder/reviewer loops",
   "keywords": ["pi-package"],

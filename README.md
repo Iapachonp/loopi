@@ -38,6 +38,7 @@ loopi/
 └── docs/
     ├── ARCHITECTURE.md                # Internal design and extension API walkthrough
     ├── pi-custom-tools-guide.md       # General guide to Pi custom tools
+    ├── PUBLISHING.md                  # How to publish to npm, install with pi, and develop locally
     └── USAGE.md                       # How to install and use loopi
 ```
 
@@ -47,8 +48,10 @@ loopi/
 
 ### Install as a local Pi package
 
+> Replace `~/loopi` below with wherever you cloned this repository (`$HOME/loopi`, `~/Code/loopi`, `~/projects/loopi`, etc.).
+
 ```bash
-cd /home/ivan/Code/loopi
+cd ~/loopi
 pi install ./
 ```
 
@@ -56,9 +59,9 @@ pi install ./
 
 ```bash
 mkdir -p ~/.pi/agent/extensions ~/.pi/agent/agents
-ln -sf /home/ivan/Code/loopi/extensions/loopi.ts ~/.pi/agent/extensions/loopi.ts
-ln -sf /home/ivan/Code/loopi/agents/coder.md ~/.pi/agent/agents/loopi-coder.md
-ln -sf /home/ivan/Code/loopi/agents/reviewer.md ~/.pi/agent/agents/loopi-reviewer.md
+ln -sf ~/loopi/extensions/loopi.ts ~/.pi/agent/extensions/loopi.ts
+ln -sf ~/loopi/agents/coder.md ~/.pi/agent/agents/loopi-coder.md
+ln -sf ~/loopi/agents/reviewer.md ~/.pi/agent/agents/loopi-reviewer.md
 ```
 
 ### Use it
@@ -88,6 +91,7 @@ loopi task="add input validation to src/api.ts" maxRounds=2
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the extension works, what each abstraction does, and how to extend it.
 - [`docs/USAGE.md`](docs/USAGE.md) — installation, configuration, and everyday commands.
+- [`docs/PUBLISHING.md`](docs/PUBLISHING.md) — publishing to npm, installing with `pi`, local development, and running `loopi` side-by-side with `loopi_local`.
 - [`docs/pi-custom-tools-guide.md`](docs/pi-custom-tools-guide.md) — general guide to writing Pi custom tools.
 
 ---
