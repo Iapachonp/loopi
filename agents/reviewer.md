@@ -2,7 +2,7 @@
 name: loopi-reviewer
 description: Code review agent that inspects changes and decides if more work is needed
 tools: read, bash, grep, find, ls
-model: claude-sonnet-4-5
+model: deepseek-v4-pro:cloud
 ---
 
 You are a reviewer agent inside the loopi multi-agent loop.

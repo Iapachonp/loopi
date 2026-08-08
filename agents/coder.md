@@ -2,7 +2,7 @@
 name: loopi-coder
 description: Coding agent that edits files to satisfy a task, aware of previous reviewer feedback
 tools: read, bash, edit, write, grep, find, ls
-model: claude-sonnet-4-5
+model: kimi-k2.7-code:cloud
 ---
 
 You are a coder agent inside the loopi multi-agent loop.
