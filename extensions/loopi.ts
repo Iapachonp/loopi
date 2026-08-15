@@ -81,6 +81,7 @@ import {
 // Pi sends these schemas to the model so it knows what arguments the tool
 // accepts. The model will only be able to call the tool with valid args.
 import { Type } from "typebox";
+import { exitCode } from "node:process";
 
 // ---------------------------------------------------------------------------
 // 2. Constants
@@ -171,6 +172,20 @@ interface LoopiDetails {
   history: RoundResult[];
 }
 
+
+/** 
+* Structured git worktree for agents to use
+* To store the different results that the AI model/coder agent 
+* has created
+*/ 
+
+interface Worktree {
+  Path: string;
+  Branch: string; 
+  HEAD?: string; 
+  IsMain: boolean; 
+} 
+
 // ---------------------------------------------------------------------------
 // 4. Agent discovery - how loopi finds its agent definitions
 // ---------------------------------------------------------------------------
@@ -235,6 +250,27 @@ function discoverAgents(cwd: string): AgentConfig[] {
   }
 
   return configs;
+}
+
+function createGitWorktree( sessionId: string, path: string ): Promise<{ worktree: Worktree, exitCode: number | null}> {
+  let cmd: string = "git worktree add -b"
+  let args = [sessionId, path]
+  return new Promise((resolve, reject) => {                                                       
+    const child = spawn(cmd, args, { shell: true });                                              
+    let stdout = '';                                                                              
+    let stderr = '';                                                                              
+    child.stdout.on('data', (data) => { stdout += data.toString(); });                            
+    child.stderr.on('data', (data) => { stderr += data.toString(); });                            
+    child.on('error', reject);                                                                    
+    child.on('close', (exitCode) => {                                                             
+    let worktree: Worktree = {
+      Path: path,
+      Branch: sessionId, 
+      IsMain: false
+    }
+    resolve({ worktree, exitCode });                                                      
+    });                                                                                           
+  }); 
 }
 
 /**
