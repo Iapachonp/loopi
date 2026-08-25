@@ -81,7 +81,6 @@ import {
 // Pi sends these schemas to the model so it knows what arguments the tool
 // accepts. The model will only be able to call the tool with valid args.
 import { Type } from "typebox";
-import { exitCode } from "node:process";
 
 // ---------------------------------------------------------------------------
 // 2. Constants
@@ -173,18 +172,17 @@ interface LoopiDetails {
 }
 
 
-/** 
-* Structured git worktree for agents to use
-* To store the different results that the AI model/coder agent 
-* has created
-*/ 
-
+/**
+ * Structured git worktree for agents to use.
+ * Stores the location and branch details of an agent session's isolated
+ * working directory.
+ */
 interface Worktree {
-  Path: string;
-  Branch: string; 
-  HEAD?: string; 
-  IsMain: boolean; 
-} 
+  path: string;
+  branch: string;
+  head?: string;
+  isMain: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // 4. Agent discovery - how loopi finds its agent definitions
@@ -252,25 +250,74 @@ function discoverAgents(cwd: string): AgentConfig[] {
   return configs;
 }
 
-function createGitWorktree( sessionId: string, path: string ): Promise<{ worktree: Worktree, exitCode: number | null}> {
-  let cmd: string = "git worktree add -b"
-  let args = [sessionId, path]
-  return new Promise((resolve, reject) => {                                                       
-    const child = spawn(cmd, args, { shell: true });                                              
-    let stdout = '';                                                                              
-    let stderr = '';                                                                              
-    child.stdout.on('data', (data) => { stdout += data.toString(); });                            
-    child.stderr.on('data', (data) => { stderr += data.toString(); });                            
-    child.on('error', reject);                                                                    
-    child.on('close', (exitCode) => {                                                             
-    let worktree: Worktree = {
-      Path: path,
-      Branch: sessionId, 
-      IsMain: false
-    }
-    resolve({ worktree, exitCode });                                                      
-    });                                                                                           
-  }); 
+/**
+ * Sanitize a session id so it can be safely used as a git branch name.
+ * Git branch names allow alphanumeric characters, '-', '_', '.', and '/'.
+ * Replaces any other character with '-' and trims leading/trailing separators.
+ */
+function sanitizeBranchName(sessionId: string): string {
+  return (
+    sessionId
+      .replace(/[^a-zA-Z0-9\-_./]+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "") || "session"
+  );
+}
+
+/**
+ * Create a git worktree for an agent session.
+ *
+ * The worktree is created from `repoRoot` on a new branch derived from
+ * `sessionId`. The branch name is sanitized so arbitrary session ids do not
+ * break git's branch naming rules.
+ */
+function createGitWorktree(
+  repoRoot: string,
+  sessionId: string,
+  worktreePath: string,
+): Promise<{ worktree: Worktree; exitCode: number | null; error?: string }> {
+  const branch = sanitizeBranchName(sessionId);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "git",
+      ["worktree", "add", "-b", branch, worktreePath],
+      { cwd: repoRoot, shell: false },
+    );
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", reject);
+
+    child.on("close", (exitCode) => {
+      const worktree: Worktree = {
+        path: worktreePath,
+        branch,
+        head: stdout.trim() || undefined,
+        isMain: false,
+      };
+
+      if (exitCode !== 0) {
+        resolve({
+          worktree,
+          exitCode,
+          error:
+            stderr.trim() ||
+            `git worktree add failed with exit code ${exitCode}`,
+        });
+        return;
+      }
+
+      resolve({ worktree, exitCode });
+    });
+  });
 }
 
 /**
