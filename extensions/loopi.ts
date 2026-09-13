@@ -46,6 +46,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -146,6 +147,9 @@ interface AgentResult {
 
   // Unix exit code of the child pi process. 0 means normal exit.
   exitCode: number;
+
+  //Session id used for the agent in the whole loop, reused in the rounds.
+  sessionId?: string;
 
   // Anything the child wrote to stderr. Non-empty usually means trouble.
   error?: string;
@@ -423,13 +427,15 @@ async function runAgent(
   cwd: string,
   agent: AgentConfig,
   task: string,
+  sessionId: string,
   signal?: AbortSignal,
 ): Promise<AgentResult> {
   const tmpPromptPath = await writeTempSystemPrompt(agent);
   const tmpDir = path.dirname(tmpPromptPath);
 
   try {
-    const args: string[] = ["--mode", "json", "-p", "--no-session"];
+    const args: string[] = [];
+    args.push("--mode", "json", "-p", "--session-id", sessionId); 
     if (agent.model) args.push("--model", agent.model);
     if (agent.tools && agent.tools.length > 0) {
       args.push("--tools", agent.tools.join(","));
@@ -494,6 +500,7 @@ async function runAgent(
           output,
           messages,
           exitCode: code ?? 0,
+          sessionId,
           error: stderrText || undefined,
         });
       });
@@ -503,6 +510,7 @@ async function runAgent(
           output: "",
           messages,
           exitCode: 1,
+          sessionId,
           error: stderrText || `Failed to spawn ${command}`,
         });
       });
@@ -545,6 +553,13 @@ function extractLastAssistantText(messages: Message[]): string {
   }
   return "";
 }
+
+
+function getSessionId(mainSessionId: string, agentName: string): string {
+  const base = `${mainSessionId}:${agentName}`;                                                     
+  return createHash("sha256").update(base).digest("hex").slice(0, 32);                                        
+}
+
 
 // ---------------------------------------------------------------------------
 // 6. Round orchestration - coder round, reviewer round, verdict parsing
@@ -637,9 +652,10 @@ async function runCoderRound(
   cwd: string,
   coder: AgentConfig,
   task: string,
+  mainSessionId: string,
   signal?: AbortSignal,
 ): Promise<AgentResult> {
-  return runAgent(cwd, coder, task, signal);
+  return runAgent(cwd, coder, task, getSessionId(mainSessionId, coder.name), signal);
 }
 
 /**
@@ -652,9 +668,10 @@ async function runReviewerRound(
   cwd: string,
   reviewer: AgentConfig,
   task: string,
+  mainSessionId: string,
   signal?: AbortSignal,
 ): Promise<AgentResult> {
-  return runAgent(cwd, reviewer, task, signal);
+  return runAgent(cwd, reviewer, task, getSessionId(mainSessionId, reviewer.name), signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -757,6 +774,7 @@ export default function (pi: ExtensionAPI) {
       onUpdate,
       ctx,
     ): Promise<AgentToolResult<LoopiDetails>> {
+      console.error("[loopi] execute started", { task: params.task.slice(0, 50) });
       // Current working directory of the main Pi session. All child agents run
       // in the same cwd so they operate on the same files.
       const cwd = ctx.cwd;
@@ -794,21 +812,36 @@ export default function (pi: ExtensionAPI) {
       const maxRounds = params.maxRounds ?? DEFAULT_MAX_ROUNDS;
       let accumulatedFeedback = "";
       const history: RoundResult[] = [];
+      const mainSessionId = ctx.sessionManager.getSessionId();
+      const coderSessionId = getSessionId(mainSessionId, coder.name);
+      const reviewerSessionId = getSessionId(mainSessionId, reviewer.name);
+
+      // Cumulative log shown via onUpdate while running and in the final result.
+      const log: string[] = [
+        `loopi sessions`,
+        `- main: ${mainSessionId}`,
+        `- coder: ${coderSessionId}`,
+        `- reviewer: ${reviewerSessionId}`,
+      ];
+
+      function emit(...lines: string[]) {
+        log.push(...lines);
+        onUpdate?.({
+          content: [{ type: "text", text: log.join("\n") }],
+          details: { history },
+        });
+      }
+
+      emit();
 
       for (let round = 1; round <= maxRounds; round++) {
         // Stream progress to the user. `onUpdate` is optional; it is present
         // in TUI and RPC modes but not in print/JSON modes.
-        onUpdate?.({
-          content: [{
-            type: "text",
-            text: `Round ${round}/${maxRounds}: running coder...`,
-          }],
-          details: { history },
-        });
+        emit(`Round ${round}/${maxRounds}: running coder...`);
 
         // 1. Coder round.
         const coderTask = buildCoderTask(params.task, accumulatedFeedback);
-        const coderResult = await runCoderRound(cwd, coder, coderTask, signal);
+        const coderResult = await runCoderRound(cwd, coder, coderTask, mainSessionId, signal);
 
         if (coderResult.exitCode !== 0) {
           return {
@@ -820,13 +853,7 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        onUpdate?.({
-          content: [{
-            type: "text",
-            text: `Round ${round}/${maxRounds}: coder done, running reviewer...`,
-          }],
-          details: { history },
-        });
+        emit(`Round ${round}/${maxRounds}: coder done, running reviewer...`);
 
         // 2. Reviewer round.
         const reviewerTask = buildReviewerTask(
@@ -837,7 +864,14 @@ export default function (pi: ExtensionAPI) {
           cwd,
           reviewer,
           reviewerTask,
+          mainSessionId,
           signal,
+        );
+
+        emit(
+          `Round ${round}/${maxRounds}: reviewer done`,
+          `- coder session: ${coderResult.sessionId}`,
+          `- reviewer session: ${reviewerResult.sessionId}`,
         );
 
         if (reviewerResult.exitCode !== 0) {
@@ -863,11 +897,12 @@ export default function (pi: ExtensionAPI) {
 
         // 4. If approved, we are done.
         if (verdict === "APPROVED") {
+          emit(`✓ Approved after ${round} round(s).`);
           return {
             content: [{
               type: "text",
               text: [
-                `✓ Approved after ${round} round(s).`,
+                ...log,
                 "",
                 "## Final reviewer assessment",
                 reviewerResult.output,
@@ -883,22 +918,19 @@ export default function (pi: ExtensionAPI) {
         // 5. Not approved: prepare feedback for the next coder round.
         accumulatedFeedback = feedback;
 
-        onUpdate?.({
-          content: [{
-            type: "text",
-            text: `Round ${round}/${maxRounds}: reviewer requested changes. ${round < maxRounds ? "Looping..." : "Max rounds reached."}`,
-          }],
-          details: { history },
-        });
+        emit(
+          `Round ${round}/${maxRounds}: reviewer requested changes. ${round < maxRounds ? "Looping..." : "Max rounds reached."}`,
+        );
       }
 
       // 6. We exhausted maxRounds without approval.
       const lastRound = history[history.length - 1];
+      emit(`✗ Reached max rounds (${maxRounds}) without approval.`);
       return {
         content: [{
           type: "text",
           text: [
-            `✗ Reached max rounds (${maxRounds}) without approval.`,
+            ...log,
             "",
             "## Last reviewer feedback",
             lastRound?.feedback ?? "(none)",
